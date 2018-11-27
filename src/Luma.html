@@ -1,0 +1,56 @@
+<div class="regl">
+</div>
+
+<script>
+	const serverBase = window.serverBase || '//maps.kosmosnimki.ru/';
+
+	// import {AnimationLoop, Program, VertexArray, Buffer, setParameters} from 'luma.gl';
+	// import {Matrix4} from 'math.gl';
+
+	export default {
+		data() {
+			return {
+				clasters: false,
+				layers: {},
+				filter: ''
+			}
+		},
+		methods: {
+			createMap(it) {
+// animationLoop.start({id: 'my-canvas'});
+			let regl = window.createREGL();
+			console.log('createMap', regl);
+
+			}
+		},
+
+		components: {
+			// ListItem
+		},
+
+		onstate({ changed, current, previous }) {
+			console.log('map onstate', changed, current, previous);
+			if (changed.urlParams && current.urlParams) {
+				this.createMap();
+			}
+			// if (changed.filter) {
+				// this.setFilter(current.filter);
+			// }
+			// if (changed.clasters && this.markers) {
+				// this.markers.options.disableClusteringAtZoom = current.clasters ? 16 : 0;
+				// this.markers.clearLayers();
+				// this.markers.addLayers(this.geoJsonLayer.getLayers());
+			// }
+		}
+	}
+</script>
+
+<style>
+.map1 {
+    position: relative;
+    height: 484px;
+	width: 100%;
+	margin: 0 auto;
+}
+
+</style>

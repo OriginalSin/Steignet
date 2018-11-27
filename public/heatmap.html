@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet.heat demo</title>
+	<link rel="stylesheet" href="http://www.kosmosnimki.ru/lib/geomixer_1.3/geomixer.css" crossorigin="" />
+	<script src="./ext/geomixer-src.js"></script>
+    <style>
+        #map { width: 800px; height: 600px; }
+        body { font: 16px/1.4 "Helvetica Neue", Arial, sans-serif; }
+        .ghbtns { position: relative; top: 4px; margin-left: 5px; }
+        a { color: #0077ff; }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- <script src="../node_modules/simpleheat/simpleheat.js"></script>
+<script src="../src/HeatLayer.js"></script>
+	<script src="http://www.kosmosnimki.ru/lib/geomixer_1.3/geomixer-src.js?1508146119421" crossorigin=""></script>
+
+<script src="./ext/leaflet-heat.js"></script>
+<script src="http://leaflet.github.io/Leaflet.markercluster/example/realworld.10000.js"></script>
+ -->
+
+
+<script src="./box.js"></script>
+<script>
+
+var map = L.map('map').setView([37.87, -75.475], 3);
+
+var tiles = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+}).addTo(map);
+
+var heat = L.heatLayer(data.map(function (p) { return [p[1], p[2]]; }), {
+	gradient: {0.01: 'blue', 0.65: 'lime', 1: 'red'},
+	blur: 25, radius: 40
+});
+
+var layerInfo = {
+	"properties":{
+		"type":"Vector",
+		// "Temporal":true
+		// ,"ZeroDate":"01.01.1980","TemporalColumnName":"Timestamp","DateBegin":"27.07.2012","DateEnd":"17.08.2014"
+		"GeometryType":"point"
+		,"attributes":[]
+		,"styles":[
+			{
+				"MinZoom":1,"MaxZoom":21,"BalloonEnable":false,"DisableBalloonOnClick":true,"DisableBalloonOnMouseMove":true,"Balloon":"<p><strong>Дата:</strong> [Timestamp]<br /> [SUMMARY]</p>"
+				,"RenderStyle":{
+					iconSize: 6,
+					fillColor: 0x0000ff,
+					// color: 0xff0000,
+					iconCircle: true
+				}
+			}
+		]
+	}
+	// ,"geometry":{"type":"POLYGON","coordinates":[[[-20037397.023298454,-7213742.191567126],[-20037397.023298454,12883137.33],[20026821.671673093,12883137.33],[20026821.671673093,-7213742.191567126],[-20037397.023298454,-7213742.191567126]]]}
+};
+
+// data = data.slice(50, 100);
+var hotSpot = L.gmx.createLayer(layerInfo)
+	// .setDateInterval(ddt1, ddt2)
+	.addTo(map)
+	.addData(data.map(function (p) {
+		return [p[0], L.gmxUtil.convertGeometry({"type":"Point","coordinates":[p[2], p[1]]}, false, true)];
+	}));
+L.control.layers({
+	OSM: tiles
+}, {
+	heat: heat,
+	HotSpot: hotSpot
+}, {collapsed: false}).addTo(map);
+
+</script>
+</body>
+</html>

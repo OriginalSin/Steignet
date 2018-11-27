@@ -1,0 +1,273 @@
+<li class="line cmd:toggleIcons id:{nodeID}">
+{#if properties}
+	{#if line.type !== 'map'}
+	<div class="borders "></div>
+	{#if line.type === 'group'}
+	<input class="expander expanderInput hidden" type="checkbox" checked="{isVisible}" />
+	<span class="expander pointer expanderCont cmd:toggleVisibility" on:click="toggleVisibility(this)"></span>
+	{/if}
+		{#if line.type === 'layer'}
+			{#if properties.styles.length > 1}
+	<span class="cont-overlays"><svg role="img" class="svgIcon"><use xlink:href="#overlays" href="#overlays"></use></svg></span>
+			{/if}
+	<span class="icons ">
+ 		<span class="pointer cmd:fitBounds cont-center"  title="Move map to this layer"><svg role="img" class="svgIcon"><use xlink:href="#center-on-click" href="#center-on-click"></use></svg></span>
+			{#if properties.description}
+		<span class="pointer cmd:showInfo cont-info" title="View description" on:click="showInfo(this, event)"><svg role="img" class="svgIcon"><use xlink:href="#info-circle-i" href="#info-circle-i"></use></svg></span>
+			{/if}
+		{#if gmxTimeline && properties.Temporal && (properties.IsRasterCatalog || (properties.Quicklook && properties.Quicklook !== 'null'))}
+		<span class="pointer cmd:toggleTimeline timeline disabled" on:click="toggleTimeline(this)"><svg role="img" class="svgIcon"><use xlink:href="#timeline-icon" href="#timeline-icon"></use></svg></span>
+		{/if}
+	</span>
+		{/if}
+	{/if}
+	{#if line.type !== 'map'}
+	<span class="cont">
+		{#if line.type === 'layer'}
+		<input class="check visibility pointer cmd:toggleVisibility" type="checkbox" checked="{isVisible}" />
+		{#if styles.length && styles.length < 2 && styles[0].RenderStyle}
+			<LegendIconCell item={styles[0]} type={properties.GeometryType} />
+		{/if}
+		{/if}
+		<label class="pointer title cmd:toggleVisibility" on:click="toggleVisibility(this)">{properties.title}</label>
+		<div class="description collapse"></div>
+		{#if line.type === 'layer'}
+			{#if styles.length && styles.length > 1 && styles[0].RenderStyle}
+			<div class="legend">
+				<div class="legend-cont">
+				{#each styles as it}
+					<div class="gmx-style-legend">
+						<span class="legendIconEye enabled pointer cmd:toggleStyle">
+							<svg role="img" class="svgIcon on"><use xlink:href="#eye-on" href="#eye-on"></use></svg>
+							<svg role="img" class="svgIcon off"><use xlink:href="#eye-off" href="#eye-off"></use></svg>
+						</span>
+						<LegendIconCell item={it} type={properties.GeometryType} />
+						<span class="styleName">{it.Name}</span>
+					</div>
+				{/each}
+				</div>
+			</div>
+			{/if}
+		{/if}
+	</span>
+	{/if}
+{/if}
+{#if line.content.children}
+	<ul class="group css-treeview id_{properties ? properties.name : 'root'}">
+	{#each line.content.children || [] as child}
+		<svelte:self line="{child}"  bind:layersTree bind:gmxTimeline />
+	{/each}
+	</ul>
+{/if}
+</li>
+ 
+<script>
+	import LegendIconCell from './LegendIconCell.html';
+
+	export default {
+		data() {
+			return {
+				//gmxTimeline: false,
+				line: null
+			}
+		},
+		// helpers: {
+		// },
+		computed: {
+			properties: ({ line }) => line.content.properties,
+			nodeID: ({ properties }) => properties ? properties.name || properties.GroupID : 'root',
+			styles: ({ properties }) => properties.gmxStyles ? properties.gmxStyles.styles : [],
+			isVisible: ({line, layersTree}) => {
+				let content = line.content,
+					props = content.properties,
+					nodeID = props.name || props.GroupID || 'root',
+					flag = layersTree.visible[nodeID] || layersTree.expanded[nodeID],
+					isOpened = flag === undefined ? props && props.visible : flag;
+
+				return isOpened;
+			}
+		},
+		components: {
+			LegendIconCell
+		},
+		methods: {
+			isOpened() {
+				let {line, layersTree} = this.get();
+				// console.log('isOpened', this.root, line, layersTree);
+				let content = line.content,
+					props = content.properties,
+					nodeID = props.name || props.GroupID || 'root',
+					flag = layersTree.visible[nodeID] || layersTree.expanded[nodeID],
+					opened = flag === undefined ? props && props.visible : flag;
+
+				if (opened && props.GroupID && content.children === undefined) {
+				}
+				return opened;
+			},
+			toggleVisibility(target) {
+				let {line} = this.get(),
+					node = line.type === 'group' ? target.parentNode.getElementsByClassName('expanderInput')[0] : target;
+				
+				if (node) {
+					if (node.checked) {
+						node.checked = false;
+					} else {
+						node.checked = true;
+					}
+				}
+			},
+			toggleTimeline(node) {
+				if (node) {
+					if (node.classList.contains('disabled')) {
+						node.classList.remove('disabled');
+						node.classList.add('enabled');
+					} else {
+						node.classList.add('disabled');
+						node.classList.remove('enabled');
+					}
+				}
+			},
+			showInfo(target) {
+				let node = target.parentNode.nextElementSibling.getElementsByClassName('description')[0];
+				if (node) {
+					if (node.classList.contains('collapse')) {
+						let {line} = this.get();
+						node.innerHTML = line.content.properties.description || '';
+						node.classList.remove('collapse');
+					} else {
+						node.classList.add('collapse');
+					}
+				}
+			}
+		}
+	}
+</script>
+
+
+<style>
+
+ul {
+	padding-inline-start: 12px;
+}
+li {
+	list-style: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+	width: 98%;
+    overflow: hidden;	
+}
+li.line > .icons span.cont-center {
+	visibility: hidden;
+}
+li.line:hover > .icons span.cont-center {
+	visibility: visible;
+}
+li.line:hover > .cont label.title {
+	font-weight: bold;
+}
+
+svg {
+	pointer-events: none;
+}
+
+svg {
+    height: 14px;
+    width: 14px;
+}
+.timeline.disabled {
+	fill: #999999;
+}
+.timeline.enabled {
+	fill: #45B0D8;
+}
+
+.pointer {
+    cursor: pointer;
+}
+.expanderInput {
+	display: initial;
+}
+.expanderCont {
+    position: relative;
+	top: -5px;
+	padding-right: 3px;
+	margin-left: -20px;
+}
+
+span.expander:before {
+	content: '\2b9e';
+}
+input.expander:checked + span.expander:before {
+    content: '\2b9f';
+}
+
+.legend {
+	padding-left: 20px;
+    display: none;
+}
+.legend-cont {
+	float: left;
+}
+
+input.check.visibility:checked ~ .legend {
+    display: block;
+	clear: both;
+}
+.gmx-style-legend .legendIconCell.style {
+    top: 0px;
+    position: relative;
+}
+.gmx-style-legend .legendIconCell {
+    width: 100%;
+}
+.legendIconEye {
+	display: inline-block;
+	/*margin-right: -5px;*/
+}
+.legendIconEye > .off {
+    /*left: -4px;*/
+    position: relative;
+}
+.legendIconEye.enabled > .on, .legendIconEye > .off {
+    display: inline-block;
+}
+.legendIconEye > .on, .legendIconEye.enabled > .off {
+    display: none;
+}
+
+.line input.expander:checked ~ ul {
+    display: block;
+}
+
+.line input.expander ~ ul {
+    display: none;
+}
+.collapse {
+    display: none;
+}
+
+span.cont-overlays {
+    position: absolute;
+    left: 1px;
+    padding-top: 2px;
+}
+span.icons {
+	z-index: 1;
+    right: 8px;
+    position: absolute;
+}
+.hidden {
+    visibility: hidden;
+}
+
+.pointer.title {
+    position: relative;
+    bottom: 3px;
+}
+.styleName {
+
+    position: relative;
+    bottom: 4px;
+
+}
+</style>

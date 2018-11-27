@@ -1,0 +1,49 @@
+.scanex-sidebar .tabs {
+    background-color: white;
+    display: block;
+}
+
+
+.dark .noselect.leaflet-control {
+	margin: initial;
+}
+.dark .scanex-sidebar .tabs {
+    background-color: black;
+    display: block;
+    height: calc(100vh - 20px);
+}
+.dark .opened {
+    color: white;
+}
+.dark .closed {
+    color: lightgray;
+}
+.dark .TreeView {
+	max-height: calc(100vh - 20px);
+	height: 100%;
+	border-top: inherit;
+    border-bottom: inherit;
+}
+
+.dark .leaflet-iconLayers.shiftIconLayers {
+	margin-left: 360px;
+}
+.dark .leaflet-iconLayers {
+    padding-left: 44px;
+}
+.dark.noIconSidebar .leaflet-iconLayers {
+    padding-left: inherit;
+}
+
+.dark .gmxTimeline.leaflet-control {
+    left: 145px;
+    right: 48px;
+}
+.dark .gmxTimeline.shiftTimeline.leaflet-control {
+    left: 490px;
+}
+
+.dark .ace_scrollbar-v {
+    width: 4px;
+    background-color: beige;
+}

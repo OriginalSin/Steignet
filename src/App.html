@@ -1,0 +1,140 @@
+<div class="map"></div>
+<Luma regl={regl} />
+
+<script>
+	const serverBase = window.serverBase || '//maps.kosmosnimki.ru/';
+	import Luma from './Luma.html';
+
+	import regl from 'regl';
+	import mat4 from 'gl-mat4';
+	import hsv2rgb from 'hsv2rgb';
+
+	const reglModules = {
+		regl: regl,
+		mat4: mat4,
+		hsv2rgb: hsv2rgb
+	};
+window.reglModules = reglModules;
+var rgb = [0, 0, 0, 1];
+hsv2rgb(300, 1, 1.0, rgb)
+console.log(rgb)
+	export default {
+		data() {
+			return {
+				regl: null,
+				clasters: false,
+				layers: {},
+				filter: ''
+			}
+		},
+		methods: {
+			createMap(it) {
+				let {clasters} = this.get();
+					it = it || {};
+				let app = it.app || {},
+					gmxMap = app.gmxMap || {},
+					state = it.state || {},
+					calendar = state.calendar || {},
+					mapID = gmxMap.mapID || '946GH',
+					apiKey = gmxMap.apiKey,
+					pos = state.map ? state.map.position : {},
+					siaJSON = (location.hostname !== '127.0.0.1' && location.pathname.indexOf('/public/') === -1 ? './public/' : '') + 'data/box.json';
+				
+				fetch(siaJSON).then(function(response) {
+						return response.json();
+					}).then(function(json) {
+						// if(app.theme) {
+							// document.body.classList.add(app.theme);
+						// }
+						if(L.leafletMap) {
+							L.leafletMap.remove();
+						}
+
+						let node = document.getElementsByClassName('map')[0];
+						let tiles = L.tileLayer('https://tilessputnik.ru/{z}/{x}/{y}.png', {
+							maxZoom: 18
+							// ,
+							// attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+						});
+						let map = L.leafletMap = new L.Map(node, {
+							srs: 3857,
+							layers: [tiles],
+							attributionControl: false,
+							center: new L.LatLng(pos.y || 43.953282, pos.x || -78.252868),
+							zoom: pos.z || 8
+						}).on('zoomstart', this.zoomstart.bind(this));
+						L.leafletMap.gmxControlsManager.init();
+
+						// heatmap
+						var heatmap = window.heatmap = L.webGLHeatmap({
+							size: 30,
+							units: 'px', //'m',
+							alphaRange: 0.6
+						}); 
+						
+						// dataPoints is an array of arrays: [[lat, lng, intensity]...]
+						// var dataPoints = [[44.6674, -63.5703, 37], [44.6826, -63.7552, 34], [44.6325, -63.5852, 41], [44.6467, -63.4696, 67], [44.6804, -63.487, 64], [44.6622, -63.5364, 40], [44.603, - 63.743, 52]];
+					//[19878427,28.186385,67.695237,600,0]
+						heatmap.setData(json.values.map(function(it) {
+							return [it[1], it[2], it[3] / 100];
+						}));
+						
+						//map.addLayer(heatmap);
+
+						// poi
+						var poi = window.poi = L.webGLPoints({
+							reglModules: reglModules,
+							size: 30,
+							units: 'px', //'m',
+							alphaRange: 0.6
+						}); 
+						
+						poi.setData(json.values.map(function(it) {
+							return [it[1], it[2], it[3] / 100];
+						}));
+						
+						// map.addLayer(poi);
+
+						L.control.layers({
+							OSM: tiles
+						}, {
+							heat: heatmap,
+							poi: poi
+						}, {collapsed: false}).addTo(map);
+					}.bind(this));
+			},
+			zoomstart() {
+				console.log('zoomstart', arguments);
+			}
+		},
+
+		components: {
+			Luma
+		},
+
+		onstate({ changed, current, previous }) {
+			console.log('map onstate', changed, current, previous);
+			if (changed.urlParams && current.urlParams) {
+				this.createMap();
+			}
+			// if (changed.filter) {
+				// this.setFilter(current.filter);
+			// }
+			// if (changed.clasters && this.markers) {
+				// this.markers.options.disableClusteringAtZoom = current.clasters ? 16 : 0;
+				// this.markers.clearLayers();
+				// this.markers.addLayers(this.geoJsonLayer.getLayers());
+			// }
+		}
+	}
+</script>
+
+<style>
+.map {
+    position: relative;
+    height: 484px;
+	width: 100%;
+	margin: 0 auto;
+}
+
+</style>

@@ -1,0 +1,322 @@
+<div id="map"></div>
+
+<style>
+</style>
+
+<script>
+	import TreeView from './TreeView.html';
+
+	import SidebarControl from  'scanex-leaflet-sidebar';
+	import 'scanex-leaflet-sidebar/dist/scanex-leaflet-sidebar.css';
+
+	import IconLayers from 'leaflet-iconlayers';
+	import 'leaflet-iconlayers/dist/iconLayers.css';
+	
+	import './iconLayersDark.css';
+
+	const serverBase = window.serverBase || '//maps.kosmosnimki.ru/';
+
+	export default {
+		data() {
+			return {
+				layersTree: {
+					visible: {},
+					expanded: {}
+				},
+				permalink: null,
+				map: null
+			}
+		},
+		methods: {
+			createMap(it) {
+				let {layersTree} = this.get();
+				let app = it.app || {},
+					gmxMap = app.gmxMap || {},
+					state = it.state || {},
+					// layersTree = state.layersTree || {},
+					calendar = state.calendar || {},
+					mapID = gmxMap.mapID || '946GH',
+					apiKey = gmxMap.apiKey,
+					pos = state.map ? state.map.position : {};
+
+				// console.log('createMap', it)
+				if(app.theme) {
+					document.body.classList.add(app.theme);
+				}
+				if(L.leafletMap) {
+					L.leafletMap.remove();
+				}
+
+				layersTree = state.layersTree || layersTree;
+				this.layersTree = layersTree;
+				let map = new L.Map('map', {
+					srs: 3857,
+					layers: [],
+					center: new L.LatLng(pos.y || 0, pos.x || 60),
+					zoom: pos.z || 3
+				});
+				L.leafletMap = map;
+
+				map.gmxControlsManager.init({
+					gmxDrawing: !app.drawing || app.drawing === 'false' ? null : {position: 'right'},
+					gmxZoom: {position: 'gmxbottomright'},
+					gmxHide: null
+				});
+				map.gmxControlsManager.setSvgSprites('//www.kosmosnimki.ru/lib/geomixer_1.3/img/svg-symbols.svg');
+
+				if (app.iconSidebar && app.iconSidebar !== 'false') {
+					var iconSidebar = new SidebarControl({position: 'topleft'});
+					iconSidebar.addTo(map);
+					this.iconSidebar = iconSidebar;
+					if (app.treeView && app.treeView !== 'false') {
+						var treePane = iconSidebar.addTab({id: 'treeView', icon: 'icon-layers', opened: 'opened', closed: 'closed'});
+						this.treePane = treePane;
+					}
+				} else {
+					document.body.classList.add('noIconSidebar');
+				}
+
+				this.mapID = mapID;
+				let opt = {
+					leafletMap: map,
+					// visibleItemOnly: true,	// TODO: только видимые элементы (слои и папки) баги серверного скрипта
+					setZIndex: true
+					// ,
+					// visibility: layersTree.visible || {}
+				};
+				L.gmx.loadMap(mapID, opt).then(function(gmxMap) {
+					this.gmxMap = gmxMap;
+					let dateInterval = state.calendar || {},
+						tb = dateInterval.dateBegin,
+						te = dateInterval.dateEnd;
+					if(!tb) {
+						let day = 1000*60*60*24,
+							cd = new Date();
+						tb = Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth(), cd.getUTCDate());
+						te = tb + day;
+					}
+					let db = new Date(tb), de = new Date(te);
+					gmxMap.layers.forEach((it) => {
+						if(it.getGmxProperties) {
+							let props = it.getGmxProperties(),
+								id = props.name;
+							if(it.setDateInterval) {
+								it.setDateInterval(db, de);
+							}
+							if(id in layersTree.visible) {
+								map[layersTree.visible[id] ? 'addLayer' : 'removeLayer'](it);
+							}
+						}
+					});
+					// let visible = layersTree.visible || {};
+					// L.gmx.gmxMapManager.iterateNode(gmxMap.rawTree, function(node) {
+						// let props = node.content.properties,
+							// layerId = props.name;
+						// if (layerId && layerId in visible && visible[layerId] !== props.visible) {
+							// props.visible = visible[layerId];
+						// }
+					// });
+
+					// this.set({layersTree: layersTree}); 
+					// this.set({gmxMap: gmxMap}); 
+					let shiftIconLayers = false,
+						gmxTimelineContainer = null,
+						repaintTimeline = null;
+
+					if (app.gmxTimeline && app.gmxTimeline !== 'false') {
+						/* TimeLine */
+						var control = L.control.gmxTimeline({
+							moveable: true
+							}).on('dateInterval', function (ev) {
+								gmxMap.layersByID[ev.layerID].setDateInterval(ev.beginDate, ev.endDate);
+							})
+							.on('statechanged', function () {
+								repaintTimeline();
+							})
+							.on('click', function (ev) {
+								gmxMap.layersByID[ev.layerID].repaint();
+							});
+						this.gmxTimeline = control;
+						repaintTimeline = () => {
+							if (control._container) {
+								control._container.classList[shiftIconLayers ? 'add' : 'remove']('shiftTimeline');
+								control._redrawTimeline();
+							}
+						};
+					}
+
+					if (this.iconSidebar) {
+						let triggerSidebar = (id) => {
+							
+							if (id === 'treeView') {
+								shiftIconLayers = true;
+								if (treePane) {
+									this._initTree({container: treePane, layersTree: layersTree, rawTree: gmxMap.rawTree, gmxTimeline: this.gmxTimeline});
+								}
+							} else {
+								shiftIconLayers = false;
+								if (treePane) {
+									treePane.innerHTML = '';
+								}
+							}
+							if (this.IconLayersContainer) {
+								this.IconLayersContainer.classList[shiftIconLayers ? 'add' : 'remove']('shiftIconLayers');
+							}
+							if (repaintTimeline) {
+								repaintTimeline();
+							}
+						};
+						this.iconSidebar.on('change', e => triggerSidebar(e.detail.current));
+					}
+
+					let bLayersConf = state.baseLayersManager || { activeIDs: gmxMap.properties.BaseLayers };
+					this._initBaseLayers(map, bLayersConf, app);
+				}.bind(this))
+				.catch(console.log);
+				this.set({map: map, config: it});
+			},
+			_initBaseLayers(map, baseLayers, app) {
+				const lang = 'rus';
+				let blm = map.gmxBaseLayersManager,
+					activeIDs = baseLayers.activeIDs || ['sputnik'],
+					currentID = baseLayers.currentID || activeIDs[0];
+				blm.initDefaults().then(function() {
+					blm.setActiveIDs(activeIDs);
+					let layers = blm.getActiveIDs().map(id => {
+						var layer = blm.get(id);
+						if (!layer) {
+							return null;
+						} else {
+							return {
+								layer: layer,
+								icon: layer.options.icon,
+								title: layer.options[lang]
+							}
+						}
+					}).filter(e => e);
+
+					if (app.iconLayers && app.iconLayers !== 'false') {
+						let baseLayersControl = new IconLayers(layers, {id: 'iconLayers'});
+						map.gmxControlsManager.add(baseLayersControl);
+						map.addControl(baseLayersControl);
+						baseLayersControl.setActiveLayer(blm.get(currentID));
+						this.IconLayersContainer = baseLayersControl.getContainer();
+					}
+					blm.setCurrentID(currentID);
+					if (app.treeView === 'opened' && this.iconSidebar) { this.iconSidebar.setCurrent('treeView'); }
+				}.bind(this));
+			},
+			_getNodeIndex(target) {
+				let arr = target.parentNode.children,
+					i, len;
+				for(i = 0, len = arr.length; i < len; i++) {
+					if (arr[i] === target) break;
+				}
+				return i === len ? null : i;
+			},
+
+			_initTree(it) {
+				let rawTree = {
+					type: 'map',
+					content: it.rawTree
+				};
+				this._treeView = new TreeView({
+					appendNode: (id) => {	// TODO: только видимые элементы (слои и папки) баги серверного скрипта
+						return;
+						if (this.gmxMap.nodes) {
+							let {map} = this.get();
+							let mapID = this.mapID,
+								layersTree = this.layersTree,
+								visible = layersTree.visible || {},
+								// mapItem = L.gmx._maps['maps.kosmosnimki.ru'][mapID],
+								gmxMap = this.gmxMap,
+								layersByID = gmxMap.layersByID;
+							L.gmx.gmxMapManager.getMapFolder({
+								treeConfig: layersTree,
+								mapId: mapID,
+								folderId: id
+							}).then(function(json) {
+								L.gmx.gmxMapManager.iterateNode(json.content, function(node) {
+									let props = node.content.properties,
+										layerId = props.name;
+									if (layerId && layerId in visible && visible[layerId] !== props.visible) {
+										props.visible = visible[layerId];
+									}
+								}, {nodes: gmxMap.nodes});
+								gmxMap.addLayersToMap(map);
+								this.treePane.innerHTML = '';
+								this._initTree({
+									container: this.treePane,
+									layersTree: this.layersTree,
+									rawTree: gmxMap.rawTree
+								});
+
+							}.bind(this));
+						}
+					},
+					target: it.container,
+					data: {
+						container: it.container,
+						layersTree: it.layersTree,
+						gmxTimeline: it.gmxTimeline ? true : false,
+						rawTree: rawTree
+					}
+				});
+				// this._treeView = app;
+
+				this._treeView.on('command', (ev) => {
+					let {map} = this.get();
+					let cmd = ev.cmd,
+						target = ev.originalEvent.target,
+						gmxMap = this.gmxMap,
+						node = gmxMap.nodes ? gmxMap.nodes[ev.id] : true,
+						gmxLayer = gmxMap.layersByID[ev.id];
+
+					// console.log('Map command', ev, gmxLayer, gmxMap);
+					if (gmxLayer) {
+						if (cmd === 'fitBounds') {
+							map.fitBounds(gmxLayer.getBounds());
+						} else if (cmd === 'toggleVisibility') {
+							// if (target.checked) {
+							if (gmxLayer._map) {
+								map.removeLayer(gmxLayer);
+							} else {
+								map.addLayer(gmxLayer);
+							}
+						} else if (cmd === 'toggleTimeline' && this.gmxTimeline) {
+							if (target.classList.contains('enabled')) {
+								if (!this.gmxTimeline._map) {
+									map.addControl(this.gmxTimeline);
+								}
+								this.gmxTimeline.addLayer(gmxLayer);
+							} else {
+								this.gmxTimeline.removeLayer(gmxLayer);
+							}
+						} else if (cmd === 'toggleStyle') {
+							let num = this._getNodeIndex(target.parentNode),
+								styles = gmxLayer.getStyles();
+							if (target.classList.contains('enabled')) {
+								target.classList.remove('enabled');
+								styles[num].disabled = true;
+							} else {
+								target.classList.add('enabled');
+								delete styles[num].disabled;
+							}
+							gmxLayer.setStyles(styles);
+						}
+					} else {
+						if (cmd === 'toggleVisibility' && !node) {
+							this._treeView.appendNode(ev.id);
+						}
+					}
+				});
+			}
+		},
+		
+		onstate({ changed, current, previous }) {
+			if (changed.permalink && current.permalink) {
+				this.createMap(current.permalink);
+			}
+		}
+	}
+</script>

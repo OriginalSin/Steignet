@@ -1,0 +1,68 @@
+<span class="legendIconCell style">
+{#if item.RenderStyle.iconUrl}
+	<img src="{item.RenderStyle.iconUrl}" crossorigin="" alt="Style Icon" />
+{:else}
+	<span class="{type} legendIconStyle " style="background-color: {backgroundColor}; border-color: {borderColor};"></span>
+{/if}
+</span>
+ 
+<script>
+	export default {
+		data() {
+			return {
+			}
+		},
+		computed: {
+			backgroundColor: ({ item }) => L.gmxUtil.dec2rgba(item.RenderStyle.fillColor, item.RenderStyle.fillOpacity || 1),
+			borderColor: ({ item }) => L.gmxUtil.dec2rgba(item.RenderStyle.color, item.RenderStyle.opacity || 1)
+		},
+
+		onstate({ changed, current, previous }) {
+ // console.log('LegendIconCell in onstate', changed, current, previous);
+		}
+	}
+</script>
+
+
+<style>
+.legendIconCell {
+    /*
+	left: -8px;
+    position: relative;
+	*/
+}
+.legendIconCell img {
+    height: 13px;
+}
+.legendIconCell .polygon {
+    display: inline-block;
+}
+
+.legendIconCell .linestring {
+    border-bottom: unset;
+    border-top: unset;
+    border-right: unset;
+	border-radius: unset;
+    border-width: 2px;
+}
+.legendIconCell .point {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    top: -4px;
+}
+.legendIconCell span {
+    width: 10px;
+    height: 10px;
+    border: solid;
+    border-width: 1px;
+	display: inline-block;
+    position: relative;
+    top: -2px;
+    margin-right: 4px;
+}
+
+
+
+
+</style>

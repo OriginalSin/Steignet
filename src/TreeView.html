@@ -1,0 +1,102 @@
+<div class="TreeView" on:click="chkEvent(event)">
+	<LineNode line={rawTree} bind:layersTree bind:gmxTimeline />
+</div>
+ 
+
+<style>
+.TreeView {
+    position: absolute;
+	width: 100%;
+    overflow-y: scroll;
+	background-color: white;
+}
+</style>
+
+<script>
+	import LineNode from './LineNode.html';
+	let regs = {
+		cmd: /cmd:(\w+)/,
+		id: /id:(\w+)/
+	}
+	export default {
+		data() {
+			return {
+				config: {},
+				layersTree: {
+					visible: {},
+					expanded: {}
+				},
+				//gmxTimeline: false,
+				group: null,
+				rawTree: null
+			}
+		},
+
+		methods: {
+			chkEvent(ev) {
+				let target = ev.target,
+					className = target.className,
+					arr = regs.cmd.exec(className);
+
+				if (arr && arr.length === 2) {
+					let out = {
+						cmd: arr[1],
+						type: ev.type,
+						originalEvent: ev
+					};
+					for(let i = 0; i < 10; i++) {
+						if (target.classList.contains('line')) {
+							arr = regs.id.exec(target.className);
+							if (arr && arr.length === 2) {
+								out.id = arr[1];
+							}
+							out.target = target;
+							break;
+						}
+						target = target.parentNode;
+					}
+					if (out.id) {
+						this.treeCommands(out);
+						this.fire('command', out);
+					}
+				}
+			},
+
+			treeCommands(attr) {
+				let {layersTree, rawTree} = this.get();
+
+				if (attr.cmd === 'toggleVisibility') {
+					let isGroup = attr.target.getElementsByClassName('expanderInput')[0],
+						input = isGroup || attr.target.getElementsByClassName('visibility')[0],
+						target = attr.originalEvent.target,
+						// isTitle = target.classList.contains('title'),
+						expanded = isGroup ? layersTree.expanded : layersTree.visible,
+						id = attr.id;
+					if (expanded[id]) {			// TODO: layersTree для пермалинков
+						delete expanded[id];
+						input.checked = false;
+						//layersTree.visible[id]
+					} else {
+						expanded[id] = true;
+						input.checked = true;
+					}
+					this.set({layersTree: layersTree});
+					return true;
+				// } else if (attr.cmd === 'showInfo') {
+					// let tt = rawTree;
+					// let input = attr.originalEvent.target,
+						// id = attr.id;
+				}
+				return false;
+			},
+
+			appendNode(id) {
+				this.options.appendNode(id);
+			}
+		},
+		components: {
+			LineNode
+		}
+	}
+
+</script>

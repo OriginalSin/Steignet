@@ -1,0 +1,157 @@
+<div class="share">
+	<div class="arrow"></div>
+	{#if title}<h3 class="popover-title">{title}</h3>{/if}
+	<div class="popover-content">
+		<div class="shareDialogContainer">
+		<div class="shareDialog">
+			<div class="shareDialog-row shareDialog-title">
+				<span class="bold">Ссылка на карту:</span>
+				<a class="gmx-link_icon" target="_blank" href="//www.twitter.com/share?url={link}"><i class="icon-twitter"></i></a>
+				<a class="gmx-link_icon" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u={link}"><i class="icon-facebook"></i></a>
+				<a class="gmx-link_icon" target="_blank" href="//vkontakte.ru/share.php?url{link}"><i class="icon-vk"></i></a>
+			</div>
+		<div class="shareDialog-row">
+    <div class="gmx-table">
+		<input class="shareDialog-inputPermalinkUrl" type="text" readonly="readonly" value="{link}">
+		<a class="gmx-link_icon" target="_blank" href="{link}"><i class="icon-link-ext" title="открыть в новом окне"></i></a>
+    </div>
+</div>
+<div class="shareDialog-row bold">Код для вставки:</div>
+<div class="shareDialog-row">
+    <div class="gmx-table shareDialog-resolutionTable">
+            <input class="" type="number" value="{frameWidth}" on:change="set({frameWidth: this.value})">
+            <span class="shareDialog-resolutionCross">x</span>
+            <input class="" type="number" value="{frameHeight}" on:change="set({frameHeight: this.value})">
+        <span class="shareDialog-validationError hidden">
+            <span>предпросмотр</span><i class="icon-link-ext"></i>
+        </span>
+        <span class="shareDialog-previewLinkCell shareDialog-validationOk">
+            <a class="shareDialog-previewLink gmx-link" href="http://winnie.kosmosnimki.ru/iframePreview.html?width={frameWidth}&amp;height={frameHeight}&amp;url={linkURI}" target="_blank">предпросмотр</a><i class="gmx-icon icon-link-ext"></i>
+        </span>
+    </div>
+</div>
+<div class="shareDialog-row">
+    <textarea class="shareDialog-validationOk" readonly="readonly">&lt;iframe src="{link}" width="{frameWidth}" height="{frameHeight}"&gt;&lt;/iframe&gt;</textarea>
+    <div class="shareDialog-validationErrorView hidden"><div class="alertWidget ui-widget"></div></div>
+</div>
+</div></div></div></div>
+ 
+<script>
+
+	export default {
+		data() {
+			return {
+				frameWidth: 800,
+				frameHeight: 600,
+				conf: 'R6UIY',
+				title: ''
+			}
+		},
+		computed: {
+			link: ({ conf }) => location.pathname + '?config=' + conf,
+			linkURI: ({ conf }) => location.pathname + '?config%3D' + conf
+		}
+	}
+</script>
+
+<style>
+.share {
+    background-color: white;
+	margin-top: 6px;
+	position: absolute;
+	z-index: 80;
+    left: 30px;
+    top: 40px;
+}
+.share {
+    padding: 1px;
+	padding-top: 0px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: normal;
+    text-align: left;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    white-space: normal;
+    font-size: 11px;
+}
+.shareDialog-row {
+    padding-bottom: 8px;
+}
+.bold {
+    font-weight: bold;
+}
+.shareDialog-resolutionTable input {
+    width: 40px;
+	text-align: center;
+}
+textarea.shareDialog-validationOk {
+    width: 96%;
+	height: 66px;
+}
+
+.hidden {
+	display: none;
+}
+.shareDialog-previewLinkCell {
+    width: 50%;
+    text-align: right;
+	float: right;
+}
+.shareDialog-previewLinkCell a {
+    color: #121212;
+}
+.shareDialog-inputPermalinkUrl {
+    width: 260px;
+}
+.shareDialog .shareDialog-inputEmbedCode {
+    height: 55px;
+    resize: none;
+    display: block;
+    font-family: monospace;
+}
+.share > .arrow:after {
+    border-width: 8px;
+    content: "";
+}
+.share > .arrow:after {
+    content: " ";
+    top: 1px;
+    margin-left: -5px;
+    border-top-width: 0px;
+    border-bottom-color: #fff;
+}
+.share > .arrow, .share > .arrow:after {
+	left: 32%;
+    top: -5px;
+    position: relative;
+    display: block;
+    width: 0px;
+    height: 0px;
+    border-style: solid;
+}
+.gmx-link_icon {
+    float: right;
+	color: grey;
+    font-size: 12px;
+	margin-top: 4px;
+}
+.shareDialog i {
+    font-size: 12px;
+}
+.icon-twitter:before {
+    content: '\';
+}
+.icon-facebook:before {
+    content: '\';
+}
+.icon-vk:before {
+    content: '\';
+}
+.icon-link-ext:before {
+    content: '\';
+}
+.popover-content {
+    padding: 6px 8px;
+}
+</style>
