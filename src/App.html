@@ -61,8 +61,9 @@ console.log(rgb)
 							layers: [tiles],
 							attributionControl: false,
 							center: new L.LatLng(pos.y || 43.953282, pos.x || -78.252868),
+							// center: new L.LatLng(pos.y || 0, pos.x || 90),
 							zoom: pos.z || 8
-						}).on('zoomstart', this.zoomstart.bind(this));
+						});//.on('zoomstart', this.zoomstart.bind(this));
 						L.leafletMap.gmxControlsManager.init();
 
 						// heatmap
@@ -71,14 +72,11 @@ console.log(rgb)
 							units: 'px', //'m',
 							alphaRange: 0.6
 						}); 
-						
-						// dataPoints is an array of arrays: [[lat, lng, intensity]...]
-						// var dataPoints = [[44.6674, -63.5703, 37], [44.6826, -63.7552, 34], [44.6325, -63.5852, 41], [44.6467, -63.4696, 67], [44.6804, -63.487, 64], [44.6622, -63.5364, 40], [44.603, - 63.743, 52]];
-					//[19878427,28.186385,67.695237,600,0]
+
 						heatmap.setData(json.values.map(function(it) {
 							return [it[1], it[2], it[3] / 100];
 						}));
-						
+
 						//map.addLayer(heatmap);
 
 						// poi
@@ -88,12 +86,19 @@ console.log(rgb)
 							units: 'px', //'m',
 							alphaRange: 0.6
 						}); 
-						
+						// json.values = [
+							// [1, 0, 0],
+							// [2, 45.0, 180]
+						// ];
+						var WW = 40075016.685578496 / 2;
 						poi.setData(json.values.map(function(it) {
-							return [it[1], it[2], it[3] / 100];
+							var latlng = L.latLng(it[1], it[2]),
+								merc = L.CRS.EPSG3857.project(latlng);
+							return [merc.x / WW, merc.y / WW];
 						}));
 						
 						// map.addLayer(poi);
+						L.marker([45.0, 180.0]).addTo(map);
 
 						L.control.layers({
 							OSM: tiles
