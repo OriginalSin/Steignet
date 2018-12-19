@@ -60,8 +60,8 @@ console.log(rgb)
 							srs: 3857,
 							layers: [tiles],
 							attributionControl: false,
-							center: new L.LatLng(pos.y || 43.953282, pos.x || -78.252868),
-							// center: new L.LatLng(pos.y || 0, pos.x || 90),
+							// center: new L.LatLng(pos.y || 43.953282, pos.x || -78.252868),
+							center: new L.LatLng(pos.y || 0, pos.x || 0),
 							zoom: pos.z || 8
 						});//.on('zoomstart', this.zoomstart.bind(this));
 						L.leafletMap.gmxControlsManager.init();
@@ -80,25 +80,66 @@ console.log(rgb)
 						//map.addLayer(heatmap);
 
 						// poi
+						var vessel_type = {
+							WIG: 0x6FDCED,
+							'Vessel With Anti-Pollution Equipment': 0xC47D1A,
+							Tug: 0x08606E,
+							Towing: 0x22A8BD,
+							Tanker: 0x1005E3,
+							Spare: 0x252A73,
+							'Ships Not Party to Armed Conflict': 0x6E604E,
+							SAR: 0x7D4F13,
+							Sailing: 0xC77A16,
+							Reserved: 0xEB1085,
+							'Port Tender': 0x4E6A6E,
+							'Pleasure Craft': 0x11909E,
+							Pilot: 0x118523,
+							Passenger: 0x16C4AD,
+							Other: 0x9C2866,
+							Military: 0x522D0F,
+							'Medical Transport': 0x7E9911,
+							'Law Enforcement': 0xA8A313,
+							HSC: 0xF2EB27,
+							Fishing: 0x1E3678,
+							Dredging: 0xB3C1E8,
+							Diving: 0xB3E8CC,
+							Cargo: 0x5AC700,
+							'': 0xE7E6FA
+						};
+						var opacity = 0.5;
+						var arr = Object.keys(vessel_type);
+						var dataMap = new Uint8Array(256 * 4);
+						for (var i = 0, len = dataMap.length; i < len; i+=4) {
+							var key = arr[i],
+								c = vessel_type[key];
+							dataMap[i] = (c >> 16) & 255;
+							dataMap[i + 1] = (c >> 8) & 255;
+							dataMap[i + 2] = c & 255;
+							dataMap[i + 3] = opacity;
+						}
 						var poi = window.poi = L.webGLPoints({
 							reglModules: reglModules,
-							size: 30,
+							size: 40,
+							pointType: 'triangle',
 							units: 'px', //'m',
-							alphaRange: 0.6
-						}); 
-						// json.values = [
-							// [1, 0, 0],
-							// [2, 45.0, 180]
-						// ];
-						var WW = 40075016.685578496 / 2;
-						poi.setData(json.values.map(function(it) {
-							var latlng = L.latLng(it[1], it[2]),
-								merc = L.CRS.EPSG3857.project(latlng);
-							return [merc.x / WW, merc.y / WW];
-						}));
+							opacity: opacity,
+							colors: dataMap,
+							color: 0xff0000
+						});
+						json.values = [
+							[1, 0, 0, 1, 1],
+							[2, 45.0, 180, 1, 0]
+						];
+						poi.setData(json.values, {type: 'latlng'});
+						// var WW = 40075016.685578496 / 2;
+						// poi.setData(json.values.map(function(it) {
+							// var latlng = L.latLng(it[1], it[2]),
+								// merc = L.CRS.EPSG3857.project(latlng);
+							// return [merc.x / WW, merc.y / WW];
+						// }));
 						
 						// map.addLayer(poi);
-						L.marker([45.0, 180.0]).addTo(map);
+						// L.marker([45.0, 180.0]).addTo(map);
 
 						L.control.layers({
 							OSM: tiles

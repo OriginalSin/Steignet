@@ -9,18 +9,9 @@ L.WebGLPoints = L.Renderer.extend({
     version: '0.1.0',
 
     options: {
-        // @option size: Number
-        // corresponds with units below
-        size: 30000,
-        // @option units: String
-        // 'm' for meters or 'px' for pixels
-        units: 'm',
-        opacity: 1,
-        gradientTexture: false,
-        alphaRange: 1,
-        // @option padding: 
-        // don't add padding (0 helps with zoomanim)
-        padding: 0
+        size: 10,	// размер точек
+		opacity: 1,
+		color: 0x0000ff
     },
 
     _initContainer: function() {
@@ -28,10 +19,8 @@ L.WebGLPoints = L.Renderer.extend({
             options = this.options;
 
         container.id = 'webgl-' + L.Util.stamp(this);
-        container.style.opacity = options.opacity;
+        // container.style.opacity = options.opacity;
         container.style.position = 'absolute';
-
-// console.log('nnnnnn', options)
 
         try {
             this._createGL(options.reglModules);
@@ -45,6 +34,7 @@ L.WebGLPoints = L.Renderer.extend({
     onAdd: function() {
         // save this to a shorter method
         this.size = this.options.size;
+// this._zoomAnimated = false;
 
         L.Renderer.prototype.onAdd.call(this);
 
@@ -62,14 +52,59 @@ L.WebGLPoints = L.Renderer.extend({
 
     getEvents: function() {
         var events = L.Renderer.prototype.getEvents.call(this);
-
+console.log('events', events)
         L.Util.extend(events, {
             click: this._click,
             resize: this.resize,
+            zoomend: this._zoomend,
+            // viewreset: L.Util.throttle(this._update, 49, this),
             move: L.Util.throttle(this._update, 49, this)
         });
 
         return events;
+    },
+
+	_zoomend: function (ev) {
+this._startAnimate = false;
+		this._needRedraw = true;
+console.log('_zoomend', ev)
+	},
+	_onAnimZoom: function (e) {
+        var map = this._map,
+		    pos = map._latLngBoundsToNewLayerBounds(map.getBounds(), e.zoom, e.center).min,
+			wb = map.getPixelWorldBounds().max,
+				pixelOrigin = map.getPixelOrigin(),
+			centerPoint = map._getCenterLayerPoint(),
+				pixelBounds = map.getPixelBounds(),
+				size = pixelBounds.getSize(),
+ymin = centerPoint.y - size.y / 2,
+ymax = centerPoint.y + size.y / 2,
+isTop = ymin + pixelOrigin.y < 0;
+console.log('_onAnimZoom', ymin + pixelOrigin.y, pos, ymin, pixelOrigin, e);
+if (isTop) {
+	// return;
+// pos.y += ymin;// + pixelOrigin.y;
+}
+		L.DomUtil.setTransform(this._container,
+		    pos,
+			map.getZoomScale(e.zoom)
+		);
+    },
+
+	_onAnimZoom11: function (ev) {
+		// this._updateTransform(ev.center, ev.zoom);
+this._animateZoom = ev.zoom;
+console.log('_onAnimZoom', ev)
+	},
+
+    reposition: function() {
+			// if (!this._startAnimate) {
+        // canvas moves opposite to map pane's position
+        var pos = this._map._getMapPanePos().multiplyBy(-1),
+			scale = this._map.getZoomScale(this._animateZoom) || 1;
+        L.DomUtil.setPosition(this._container, pos);
+			// }
+console.log('reposition', pos, arguments);
     },
 
     _click: function(ev) {
@@ -78,6 +113,7 @@ L.WebGLPoints = L.Renderer.extend({
 
     _update: function() {
         L.Renderer.prototype._update.call(this);
+// console.log('_update', this.pixelsToWebGLMatrix)
         this.draw();
     },
 
@@ -87,14 +123,22 @@ L.WebGLPoints = L.Renderer.extend({
         // this.data.push([lat, lon, value / 100]);
     },
 
+    position: [],
     setData: function(dataset, opt) {
 		if (opt) {
 			if (opt.type === 'latlng') {
 				var WW = 40075016.685578496 / 2;
+				// var WW = 40073012.485578496 / 2;
 				this.position = dataset.map(function (it) {
-					var latlng = L.latLng(it[0], it[1]),
+							// var latlng = L.latLng(it[1], it[2]),
+								// merc = L.CRS.EPSG3857.project(latlng);
+							// return [merc.x / WW, merc.y / WW];
+					var len = it.length,
+						colorIndex = it[3],
+						filterIndex = it[4],
+						latlng = L.latLng(it[1], it[2]),
 						merc = L.CRS.EPSG3857.project(latlng);
-					return [merc.x / WW, merc.y / WW];
+					return [merc.x / WW, merc.y / WW, colorIndex, filterIndex];
 				});
 			} else {
 				this.position = dataset;
@@ -118,7 +162,9 @@ L.WebGLPoints = L.Renderer.extend({
         if (!this._map) return;
 
         this.reposition();
+		this._prepareMat();
 		this._needRedraw = true;
+// console.log('draw', this.pixelsToWebGLMatrix)
     },
 
     resize: function() {
@@ -131,18 +177,14 @@ L.WebGLPoints = L.Renderer.extend({
         this.draw();
     },
 
-    reposition: function() {
-        // canvas moves opposite to map pane's position
-        var pos = this._map._getMapPanePos().multiplyBy(-1);
-        L.DomUtil.setPosition(this._container, pos);
-    },
-
     pixelsToWebGLMatrix: new Float32Array(16),
 
     _prepareMat: function() {
+console.log(this._zoomAnimated);
  		if (this._map) {
 			var map = this._map,
-				rw = 256 * Math.pow(2, map.getZoom()),
+				rw = 256 * Math.pow(2, this._zoom),
+				// rw = 256 * Math.pow(2, map.getZoom()),
 				pbs = map.getPixelBounds(),
 				size = pbs.getSize(),
 				rx = rw / size.x,
@@ -164,31 +206,131 @@ L.WebGLPoints = L.Renderer.extend({
 				0, 0, 0, 1		//	tx	ty	0	0
 			]);
 		}
+// console.log('_prepareMat', this.pixelsToWebGLMatrix, map.getZoom())
 		return this.pixelsToWebGLMatrix;
-   },
+	},
 
+    _pointCode: {
+		tile: 0,
+		triangle: 0.5,
+		circle: 1
+	},
     _createGL: function(reglModules) {
 		var regl = reglModules.regl({
 			// profile: true,
 			canvas: this._container
 		});
 
+        var v = this.options.color,
+			color = [(v >> 16) & 255, (v >> 8) & 255, v & 255, this.options.opacity];
+
 		this.drawPoints = regl({
+			/*
 		  frag: `
-		  precision mediump float;
-		  uniform vec4 color;
-		  void main () {
-			gl_FragColor = color;
-		  }`,
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+#define PI 3.14159265359
+#define TWO_PI 6.28318530718
+
+// uniform vec4 color;
+// uniform vec2 u_resolution;
+// uniform vec2 u_mouse;
+// uniform float u_time;
+
+// Reference to
+// http://thndl.com/square-shaped-shaders.html
+
+void main(){
+						// vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+
+  vec2 st = gl_PointCoord.xy; // /u_resolution.xy;
+  st.x /= 0.5;
+  st.x -= 0.57;
+  // st.y *= -1.;
+  // st.y *= -0.7;
+  st.y += 0.1;
+
+
+  // Remap the space to -1. to 1.
+  st = st * 2. - 1.;
+
+  // Number of sides of your shape
+  int N = 3;
+
+  // Angle and radius from the current pixel
+  float a = atan(st.x, st.y) + PI;
+  float r = TWO_PI / float(N);
+
+  // Shaping function that modulate the distance
+  float d = cos(floor(.5 + a / r) * r - a) * length(st);
+				// if (d > 0.5) {
+					// discard;
+				// }
+
+  vec3 color = vec3(1.0 - smoothstep(.5, .5, d));
+  // color = vec3(d);
+
+  gl_FragColor = vec4(color, 1.0);
+
+			}`,
+			*/
+		  frag: `
+			#ifdef GL_ES
+			precision mediump float;
+			#endif
+
+			#define PI 3.14159265359
+			#define TWO_PI 6.28318530718
+
+			uniform vec4 color;
+			uniform float pointType;
+			varying float v_Filter;
+			void main () {
+				if (v_Filter == 0.0) {
+					discard;
+				}
+				if (pointType == 1.0) {			// circle
+					vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+					// cxy.x -= 0.1;
+					float r = dot(cxy, cxy);
+					if (r > 1.0) {
+						discard;
+					}
+				} else if (pointType == 0.5) {	// triangle
+					vec2 st = gl_PointCoord.xy;
+					st.x /= 0.5;
+					st.x -= 0.57;
+					st.y += 0.1;
+
+					st = st * 2. - 1.;		// Remap the space to -1. to 1.
+
+					int N = 3;				// Number of sides of your shape
+
+											// Angle and radius from the current pixel
+					float a = atan(st.x, st.y) + PI;
+					float r = TWO_PI / float(N);
+
+											// Shaping function that modulate the distance
+					float d = cos(floor(.5 + a / r) * r - a) * length(st);
+					if (d > 0.5) {
+						discard;
+					}
+				}
+				gl_FragColor = color;
+			}`,
 
 		  vert: `
-			uniform mat4 u_matrix;
 			precision mediump float;
-			attribute vec2 position;
+			attribute vec4 position;
+			uniform mat4 u_matrix;
+			uniform float pointSize;
+			varying float v_Filter;
 			void main () {
-				gl_PointSize = 8.0;
-				// gl_Position = vec4(position.x * u_matrix[0][0] + u_matrix[3][0], position.y * u_matrix[1][1] + u_matrix[3][1] , 0, 1);
-				gl_Position = u_matrix * vec4(position, 0, 1);
+				gl_PointSize = pointSize;
+				gl_Position = u_matrix * vec4(position.xy, 0, 1);
+				v_Filter = position.w;
 			}`,
 
 		  attributes: {
@@ -196,8 +338,10 @@ L.WebGLPoints = L.Renderer.extend({
 		  },
 
 		  uniforms: {
+			pointType: this._pointCode[this.options.pointType] || 0,
+			pointSize: this.options.size,
 			u_matrix: regl.prop('matrix'),
-			color: [0, 0, 1, 1]
+			color: color
 		  },
 
 		  primitive: 'points',
@@ -205,17 +349,20 @@ L.WebGLPoints = L.Renderer.extend({
 		});
 
 		var tick = regl.frame(() => {
-			if (this._needRedraw) {
+			if (this._needRedraw && !this._startAnimate) {
+ // if (!this._map.animateToZoom || this._map._zoom === this._map.animateToZoom) {
 				regl.clear({
 					depth: 1
 				});
 				this.drawPoints({
-					depth: 1,
+					// depth: 1,
 					matrix: this._prepareMat()
 				});
 				this._needRedraw = false;
+console.log('drawPoints', this.__zoom, this._zoom, this._map._zoom, this._map.getZoom())
 				// tick.cancel();
-				}
+				// }
+			}
 		});
 		return regl;
 	}
