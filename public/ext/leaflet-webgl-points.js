@@ -23,12 +23,11 @@ L.WebGLPoints = L.Renderer.extend({
         container.style.position = 'absolute';
 
         try {
-            this._createGL(options.reglModules);
+            this.regl = this._createGL(options.reglModules);
+			
         } catch (e) {
             console.error(e);
         }
-
-        this._container = container;
     },
 
     onAdd: function() {
@@ -140,6 +139,20 @@ console.log('reposition', pos, arguments);
 						merc = L.CRS.EPSG3857.project(latlng);
 					return [merc.x / WW, merc.y / WW, colorIndex, filterIndex];
 				});
+			} else if (opt.type === 'Float32Array') {
+				// var ndarray = this.options.reglModules.ndarray(dataset, [opt.length, dataset.length / opt.length, opt.length]);
+				// var ndarray = this.options.reglModules.ndarray(dataset, [dataset.length, 1, opt.length]);
+				// this.position = opt.regl.buffer({
+				  // dimension: opt.length,
+				  // data: ndarray
+				// });
+				this.position = opt.regl.buffer({
+				  dimension: dataset.length,
+				  length: opt.length,
+				  data: dataset
+				});
+				// this.position = ndarray;
+				// this.position = opt.regl.buffer(ndarray);
 			} else {
 				this.position = dataset;
 			}
@@ -215,67 +228,19 @@ console.log(this._zoomAnimated);
 		triangle: 0.5,
 		circle: 1
 	},
-    _createGL: function(reglModules) {
-		var regl = reglModules.regl({
+	regl: null,
+    _createGL: function() {
+		var regl = this.options.reglModules.regl({
 			// profile: true,
 			canvas: this._container
 		});
+		this.setData(this.options.data, {type: 'latlng'});
+		// this.setData(this.options.data, {type: 'Float32Array', regl: regl, length: this.options.vectorSize || 4});
 
         var v = this.options.color,
 			color = [(v >> 16) & 255, (v >> 8) & 255, v & 255, this.options.opacity];
 
 		this.drawPoints = regl({
-			/*
-		  frag: `
-#ifdef GL_ES
-precision mediump float;
-#endif
-
-#define PI 3.14159265359
-#define TWO_PI 6.28318530718
-
-// uniform vec4 color;
-// uniform vec2 u_resolution;
-// uniform vec2 u_mouse;
-// uniform float u_time;
-
-// Reference to
-// http://thndl.com/square-shaped-shaders.html
-
-void main(){
-						// vec2 cxy = 2.0 * gl_PointCoord - 1.0;
-
-  vec2 st = gl_PointCoord.xy; // /u_resolution.xy;
-  st.x /= 0.5;
-  st.x -= 0.57;
-  // st.y *= -1.;
-  // st.y *= -0.7;
-  st.y += 0.1;
-
-
-  // Remap the space to -1. to 1.
-  st = st * 2. - 1.;
-
-  // Number of sides of your shape
-  int N = 3;
-
-  // Angle and radius from the current pixel
-  float a = atan(st.x, st.y) + PI;
-  float r = TWO_PI / float(N);
-
-  // Shaping function that modulate the distance
-  float d = cos(floor(.5 + a / r) * r - a) * length(st);
-				// if (d > 0.5) {
-					// discard;
-				// }
-
-  vec3 color = vec3(1.0 - smoothstep(.5, .5, d));
-  // color = vec3(d);
-
-  gl_FragColor = vec4(color, 1.0);
-
-			}`,
-			*/
 		  frag: `
 			#ifdef GL_ES
 			precision mediump float;
@@ -285,12 +250,20 @@ void main(){
 			#define TWO_PI 6.28318530718
 
 			uniform vec4 color;
+			uniform sampler2D palTexture;
 			uniform float pointType;
-			varying float v_Filter;
+			varying float v_Angle;
+			varying float v_PalNum;
+
+			mat2 rotate2d(float _angle){
+				return mat2(cos(_angle),-sin(_angle),
+							sin(_angle),cos(_angle));
+			}
+
 			void main () {
-				if (v_Filter == 0.0) {
-					discard;
-				}
+				// if (v_Filter == 0.0) {
+					// discard;
+				// }
 				if (pointType == 1.0) {			// circle
 					vec2 cxy = 2.0 * gl_PointCoord - 1.0;
 					// cxy.x -= 0.1;
@@ -300,6 +273,11 @@ void main(){
 					}
 				} else if (pointType == 0.5) {	// triangle
 					vec2 st = gl_PointCoord.xy;
+					
+					st -= vec2(0.5);			// move space from the center to the vec2(0.0)
+					st = rotate2d( sin(PI * v_Angle / 180.) * PI / 2.0 ) * st;	// rotate the space
+					st += vec2(0.5);			// move it back to the original place
+
 					st.x /= 0.5;
 					st.x -= 0.57;
 					st.y += 0.1;
@@ -314,11 +292,13 @@ void main(){
 
 											// Shaping function that modulate the distance
 					float d = cos(floor(.5 + a / r) * r - a) * length(st);
-					if (d > 0.5) {
+					if (d >= 0.5) {
 						discard;
 					}
 				}
-				gl_FragColor = color;
+				vec4 ndviColor = texture2D(palTexture, vec2((v_PalNum + 0.5) / 256.0, 0.5));
+				// gl_FragColor = vec4(ndviColor.rgb, 1.0);
+				gl_FragColor = ndviColor;
 			}`,
 
 		  vert: `
@@ -326,11 +306,13 @@ void main(){
 			attribute vec4 position;
 			uniform mat4 u_matrix;
 			uniform float pointSize;
-			varying float v_Filter;
+			varying float v_Angle;
+			varying float v_PalNum;
 			void main () {
 				gl_PointSize = pointSize;
 				gl_Position = u_matrix * vec4(position.xy, 0, 1);
-				v_Filter = position.w;
+				v_PalNum = position[2];
+				v_Angle = position[3];
 			}`,
 
 		  attributes: {
@@ -341,6 +323,12 @@ void main(){
 			pointType: this._pointCode[this.options.pointType] || 0,
 			pointSize: this.options.size,
 			u_matrix: regl.prop('matrix'),
+			palTexture: regl.texture({
+				width: this.options.colors.length / 4,
+				height: 1,
+				data: this.options.colors
+			}),
+			
 			color: color
 		  },
 
@@ -359,7 +347,7 @@ void main(){
 					matrix: this._prepareMat()
 				});
 				this._needRedraw = false;
-console.log('drawPoints', this.__zoom, this._zoom, this._map._zoom, this._map.getZoom())
+console.log('drawPoints', regl.stats)
 				// tick.cancel();
 				// }
 			}

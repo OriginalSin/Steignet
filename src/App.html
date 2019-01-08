@@ -28,6 +28,66 @@ console.log(rgb)
 			}
 		},
 		methods: {
+			parseJSON(json) {
+				let out = {},
+					col = {
+						WIG: 0x6FDCED,
+						'Vessel With Anti-Pollution Equipment': 0xC47D1A,
+						Tug: 0x08606E,
+						Towing: 0x22A8BD,
+						Tanker: 0x1005E3,
+						Spare: 0x252A73,
+						'Ships Not Party to Armed Conflict': 0x6E604E,
+						SAR: 0x7D4F13,
+						Sailing: 0xC77A16,
+						Reserved: 0xEB1085,
+						'Port Tender': 0x4E6A6E,
+						'Pleasure Craft': 0x11909E,
+						Pilot: 0x118523,
+						Passenger: 0x16C4AD,
+						Other: 0x9C2866,
+						Military: 0x522D0F,
+						'Medical Transport': 0x7E9911,
+						'Law Enforcement': 0xA8A313,
+						HSC: 0xF2EB27,
+						Fishing: 0x1E3678,
+						Dredging: 0xB3C1E8,
+						Diving: 0xB3E8CC,
+						Cargo: 0x5AC700,
+						'': 0xE7E6FA
+					};
+				// let arr = json.values;
+				if(json.values) {
+					out.pdata = json.values.map(function(it) {
+						let rgba = Math.floor(it[3] / 100);
+						col[rgba] = false;
+						return [it[1], it[2], rgba];
+					});
+				} else if(json.features) {
+					out.pdata = json.features.map(function(it) {
+						let props = it.properties,
+							coords = it.geometry.coordinates;
+						let rgba = props.vessel_type;
+						return [props.mmsi, coords[0], coords[1], col[rgba] || 0xffffff, 1];
+					});
+				}
+				let arr = Object.keys(col);
+				var opacity = 1;
+				var colors = new Uint8Array(256 * 4);
+				for (var i = 0, len = colors.length; i < len; i+=4) {
+					let key = arr[i],
+						c = col[key];
+					if(!c) {
+						c = Math.floor(Math.random() * 255 * 255 * 255);
+					}
+					colors[i] = (c >> 16) & 255;
+					colors[i + 1] = (c >> 8) & 255;
+					colors[i + 2] = c & 255;
+					colors[i + 3] = opacity;
+				}
+				out.colors = colors;
+				return out;
+			},
 			createMap(it) {
 				let {clasters} = this.get();
 					it = it || {};
@@ -38,12 +98,17 @@ console.log(rgb)
 					mapID = gmxMap.mapID || '946GH',
 					apiKey = gmxMap.apiKey,
 					pos = state.map ? state.map.position : {},
-					siaJSON = (location.hostname !== '127.0.0.1' && location.pathname.indexOf('/public/') === -1 ? './public/' : '') + 'data/box.json';
-				
+					// siaJSON = (location.hostname !== '127.0.0.1' && location.pathname.indexOf('/public/') === -1 ? './public/' : '') + 'data/box.json';
+					siaJSON = (location.hostname !== '127.0.0.1' && location.pathname.indexOf('/public/') === -1 ? './public/' : '') + 'data/ais.json';
+
+// siaJSON = '';
 				fetch(siaJSON).then(function(response) {
 						return response.json();
 					}).then(function(json) {
-						// if(app.theme) {
+						let ph = this.parseJSON(json);
+						let pdata = [];
+						let arr = json.values;
+						// if(json.features) {
 							// document.body.classList.add(app.theme);
 						// }
 						if(L.leafletMap) {
@@ -61,7 +126,8 @@ console.log(rgb)
 							layers: [tiles],
 							attributionControl: false,
 							// center: new L.LatLng(pos.y || 43.953282, pos.x || -78.252868),
-							center: new L.LatLng(pos.y || 0, pos.x || 0),
+							center: new L.LatLng(pos.y || 68.073304, pos.x || 14.414062),
+							// center: new L.LatLng(pos.y || 0, pos.x || 0),
 							zoom: pos.z || 8
 						});//.on('zoomstart', this.zoomstart.bind(this));
 						L.leafletMap.gmxControlsManager.init();
@@ -73,64 +139,26 @@ console.log(rgb)
 							alphaRange: 0.6
 						}); 
 
-						heatmap.setData(json.values.map(function(it) {
-							return [it[1], it[2], it[3] / 100];
-						}));
+						heatmap.setData(ph.pdata);
 
 						//map.addLayer(heatmap);
 
 						// poi
-						var vessel_type = {
-							WIG: 0x6FDCED,
-							'Vessel With Anti-Pollution Equipment': 0xC47D1A,
-							Tug: 0x08606E,
-							Towing: 0x22A8BD,
-							Tanker: 0x1005E3,
-							Spare: 0x252A73,
-							'Ships Not Party to Armed Conflict': 0x6E604E,
-							SAR: 0x7D4F13,
-							Sailing: 0xC77A16,
-							Reserved: 0xEB1085,
-							'Port Tender': 0x4E6A6E,
-							'Pleasure Craft': 0x11909E,
-							Pilot: 0x118523,
-							Passenger: 0x16C4AD,
-							Other: 0x9C2866,
-							Military: 0x522D0F,
-							'Medical Transport': 0x7E9911,
-							'Law Enforcement': 0xA8A313,
-							HSC: 0xF2EB27,
-							Fishing: 0x1E3678,
-							Dredging: 0xB3C1E8,
-							Diving: 0xB3E8CC,
-							Cargo: 0x5AC700,
-							'': 0xE7E6FA
-						};
-						var opacity = 0.5;
-						var arr = Object.keys(vessel_type);
-						var dataMap = new Uint8Array(256 * 4);
-						for (var i = 0, len = dataMap.length; i < len; i+=4) {
-							var key = arr[i],
-								c = vessel_type[key];
-							dataMap[i] = (c >> 16) & 255;
-							dataMap[i + 1] = (c >> 8) & 255;
-							dataMap[i + 2] = c & 255;
-							dataMap[i + 3] = opacity;
-						}
+						// ph.pdata = [
+							// [1, 0, 0, 2, 1],
+							// [2, 45.0, 180, 1, 0]
+						// ];
+						// poi.setData(json.values, {type: 'latlng'});
 						var poi = window.poi = L.webGLPoints({
 							reglModules: reglModules,
 							size: 40,
 							pointType: 'triangle',
 							units: 'px', //'m',
-							opacity: opacity,
-							colors: dataMap,
+							opacity: 1,
+							data: ph.pdata,
+							colors: ph.colors,
 							color: 0xff0000
 						});
-						json.values = [
-							[1, 0, 0, 1, 1],
-							[2, 45.0, 180, 1, 0]
-						];
-						poi.setData(json.values, {type: 'latlng'});
 						// var WW = 40075016.685578496 / 2;
 						// poi.setData(json.values.map(function(it) {
 							// var latlng = L.latLng(it[1], it[2]),
